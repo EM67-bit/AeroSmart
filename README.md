@@ -1,2 +1,2 @@
-# viel-flug-sensore-package
+# AeroSmart
 sensor package for drones with displaying software and database
