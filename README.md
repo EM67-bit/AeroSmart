@@ -1,2 +1,2 @@
 # AeroSmart
-sensor package for drones with displaying software and database
+sensor package for displaying software and database
