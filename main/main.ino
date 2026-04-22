@@ -10,7 +10,7 @@ void setup() {
 }
 
 void loop() {
-  // feed GPS continuously for 2 seconds instead of blocking with delay()
+  // feed GPS continuously for 2 seconds instead of blocking with delay() <-- claude idea
   unsigned long start = millis();
   while (millis() - start < 2000) {
     gpsModule.feed();
