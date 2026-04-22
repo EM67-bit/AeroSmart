@@ -6,7 +6,6 @@ void GPS::begin() {
   _serial.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
 }
 
-// feed GPS continuously - call this in a loop, never use delay() alongside GPS
 void GPS::feed() {
   while (_serial.available() > 0) {
     _gps.encode(_serial.read());
