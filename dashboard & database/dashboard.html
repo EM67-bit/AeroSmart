@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AeroSmart</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0a0c0f;
+  --surface: #111418;
+  --card:    #161b22;
+  --border:  #1e2530;
+  --accent:  #00d4aa;
+  --blue:    #3b82f6;
+  --warn:    #f59e0b;
+  --danger:  #ef4444;
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --dim:     #334155;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono','Fira Code','Consolas',monospace;
+  font-size: 13px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 15px; font-weight: 700;
+  letter-spacing: .12em; color: var(--accent);
+  text-transform: uppercase;
+}
+.logo-box {
+  width: 28px; height: 28px;
+  border: 2px solid var(--accent); border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.status-bar { display: flex; align-items: center; gap: 16px; }
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  transition: background .3s;
+  animation: blink 2s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+.sl { color: var(--muted); font-size:11px; letter-spacing:.08em; }
+.sv { color: var(--text);  font-size:11px; }
+#clock { color: var(--accent); font-size:12px; letter-spacing:.1em; }
+
+main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+}
+
+/* LEFT COLUMN */
+.left-col {
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  background: var(--surface);
+}
+
+/* tabs */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.tab {
+  flex: 1; padding: 10px 4px;
+  text-align: center; font-size: 10px;
+  letter-spacing: .1em; color: var(--muted);
+  cursor: pointer; border: none; background: none;
+  text-transform: uppercase;
+  border-bottom: 2px solid transparent;
+  transition: color .2s, border-color .2s;
+}
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; padding: 16px; flex-direction: column; gap: 12px; }
+.panel.active { display: flex; }
+
+/* cards inside left col */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+}
+.card.blue::before  { background: linear-gradient(90deg, var(--blue), transparent); }
+.card.amber::before { background: linear-gradient(90deg, var(--warn), transparent); }
+.card.red::before   { background: linear-gradient(90deg, var(--danger), transparent); }
+
+.ctitle {
+  font-size:10px; letter-spacing:.14em; color: var(--muted);
+  text-transform: uppercase; margin-bottom: 12px;
+  display:flex; align-items:center; gap:8px;
+}
+.ctitle::after { content:''; flex:1; height:1px; background:var(--border); }
+
+.crow {
+  display:flex; justify-content:space-between; align-items:center;
+  padding: 5px 0; border-bottom: 1px solid var(--border);
+}
+.crow:last-child { border-bottom: none; }
+.ckey { color: var(--muted); font-size:11px; letter-spacing:.05em; }
+.cval { font-variant-numeric: tabular-nums; }
+.cval.g { color: var(--accent); }
+.cval.b { color: var(--blue);   }
+.cval.a { color: var(--warn);   }
+.cval.w { color: var(--text);   }
+.cval.r { color: var(--danger); }
+
+.mg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.metric { display:flex; flex-direction:column; gap:3px; }
+.mlbl { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+.mval { font-size:20px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; }
+.mval.g { color: var(--accent); }
+.mval.b { color: var(--blue);   }
+.mval.a { color: var(--warn);   }
+.mval.w { color: var(--text);   }
+.munit { font-size:10px; color:var(--muted); }
+
+.angles { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:4px; }
+.abox {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 8px 6px; text-align:center;
+}
+.aaxis { font-size:10px; color:var(--muted); letter-spacing:.1em; margin-bottom:4px; }
+.aval  { font-size:17px; font-weight:700; font-variant-numeric:tabular-nums; }
+
+/* charts */
+.chart-wrap { position:relative; margin-top:8px; }
+
+/* RIGHT COLUMN = map + charts */
+.right-col {
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#map {
+  flex: 1;
+  min-height: 0;
+}
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  height: 180px;
+}
+.chart-panel {
+  padding: 12px 14px;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.chart-panel:last-child { border-right: none; }
+.chart-panel .ctitle { margin-bottom: 6px; }
+
+/* map layer toggle */
+.map-ctrl {
+  display: flex; gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.map-btn {
+  padding: 5px 12px; font-size: 10px; font-family: inherit;
+  letter-spacing: .08em; color: var(--muted);
+  background: none; border: none; cursor: pointer;
+  text-transform: uppercase;
+  transition: color .2s, background .2s;
+}
+.map-btn.active { background: var(--card); color: var(--accent); }
+
+/* leaflet dark override */
+.leaflet-container { background: #111; }
+.leaflet-control-attribution { background: rgba(10,12,15,.8) !important; color: #444 !important; }
+.leaflet-control-attribution a { color: #555 !important; }
+
+/* footer */
+footer {
+  padding: 8px 24px;
+  border-top: 1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:center;
+  color: var(--dim); font-size: 10px; letter-spacing:.08em;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.spinner {
+  width:8px; height:8px;
+  border: 1.5px solid var(--dim); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 1s linear infinite; display:none;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-box">&#9652;</div>
+    AEROSMART
+  </div>
+  <div class="status-bar">
+    <div class="dot" id="dot"></div>
+    <span class="sl">LIVE</span>
+    <span class="sv" id="row-count">—</span>
+    <span class="sl">ROWS &nbsp; UTC</span>
+    <span id="clock">——:——:——</span>
+    <div class="map-ctrl">
+      <button class="map-btn active" id="btn-street" onclick="setLayer('street')">STREET</button>
+      <button class="map-btn"        id="btn-sat"    onclick="setLayer('sat')">SATELLITE</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT -->
+  <div class="left-col">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('gps',this)">GPS</button>
+      <button class="tab"        onclick="switchTab('env',this)">ENV</button>
+      <button class="tab"        onclick="switchTab('imu',this)">IMU</button>
+      <button class="tab"        onclick="switchTab('stats',this)">STATS</button>
+    </div>
+
+    <!-- GPS panel -->
+    <div class="panel active" id="tab-gps">
+      <div class="card">
+        <div class="ctitle">position</div>
+        <div class="crow"><span class="ckey">LAT</span><span class="cval g" id="lat">—</span></div>
+        <div class="crow"><span class="ckey">LON</span><span class="cval g" id="lon">—</span></div>
+        <div class="crow"><span class="ckey">ALT</span><span class="cval b" id="gps_alt">—</span></div>
+        <div class="crow"><span class="ckey">SPEED</span><span class="cval b" id="speed">—</span></div>
+        <div class="crow"><span class="ckey">SATS</span><span class="cval w" id="satellites">—</span></div>
+        <div class="crow"><span class="ckey">HDOP</span><span class="cval w" id="hdop">—</span></div>
+        <div class="crow"><span class="ckey">UTC</span><span class="cval w" id="utc_time">—</span></div>
+      </div>
+    </div>
+
+    <!-- ENV panel -->
+    <div class="panel" id="tab-env">
+      <div class="card amber">
+        <div class="ctitle">DHT sensor</div>
+        <div class="mg">
+          <div class="metric">
+            <span class="mlbl">temperature</span>
+            <span class="mval a" id="dht_temp">—</span>
+            <span class="munit">°C</span>
+          </div>
+          <div class="metric">
+            <span class="mlbl">humidity</span>
+            <span class="mval b" id="humidity">—</span>
+            <span class="munit">%</span>
+          </div>
+        </div>
+      </div>
+      <div class="card blue">
+        <div class="ctitle">BMP390</div>
+        <div class="mg">
+          <div class="metric">
+            <span class="mlbl">temperature</span>
+            <span class="mval a" id="bmp_temp">—</span>
+            <span class="munit">°C</span>
+          </div>
+          <div class="metric">
+            <span class="mlbl">pressure</span>
+            <span class="mval w" id="pressure">—</span>
+            <span class="munit">hPa</span>
+          </div>
+          <div class="metric" style="grid-column:span 2">
+            <span class="mlbl">altitude</span>
+            <span class="mval g" id="bmp_alt">—</span>
+            <span class="munit">m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMU panel -->
+    <div class="panel" id="tab-imu">
+      <div class="card">
+        <div class="ctitle">BNO085 orientation</div>
+        <div class="angles">
+          <div class="abox">
+            <div class="aaxis">ROLL</div>
+            <div class="aval" style="color:var(--accent)" id="roll">—</div>
+          </div>
+          <div class="abox">
+            <div class="aaxis">PITCH</div>
+            <div class="aval" style="color:var(--blue)" id="pitch">—</div>
+          </div>
+          <div class="abox">
+            <div class="aaxis">YAW</div>
+            <div class="aval" style="color:var(--warn)" id="yaw">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="card blue">
+        <div class="ctitle">accelerometer (m/s²)</div>
+        <div class="crow"><span class="ckey">AX</span><span class="cval w" id="ax">—</span></div>
+        <div class="crow"><span class="ckey">AY</span><span class="cval w" id="ay">—</span></div>
+        <div class="crow"><span class="ckey">AZ</span><span class="cval w" id="az">—</span></div>
+      </div>
+      <div class="card red">
+        <div class="ctitle">gyroscope (rad/s)</div>
+        <div class="crow"><span class="ckey">GX</span><span class="cval w" id="gx">—</span></div>
+        <div class="crow"><span class="ckey">GY</span><span class="cval w" id="gy">—</span></div>
+        <div class="crow"><span class="ckey">GZ</span><span class="cval w" id="gz">—</span></div>
+      </div>
+    </div>
+
+    <!-- STATS panel -->
+    <div class="panel" id="tab-stats">
+      <div class="card amber">
+        <div class="ctitle">session stats</div>
+        <div class="crow"><span class="ckey">TOTAL ROWS</span><span class="cval w" id="s-total">—</span></div>
+        <div class="crow"><span class="ckey">FIRST SEEN</span><span class="cval w" id="s-first">—</span></div>
+        <div class="crow"><span class="ckey">LAST SEEN</span><span class="cval w"  id="s-last">—</span></div>
+        <div class="crow"><span class="ckey">MAX SPEED</span><span class="cval b"  id="s-maxspeed">—</span></div>
+        <div class="crow"><span class="ckey">MAX ALT</span><span class="cval b"    id="s-maxalt">—</span></div>
+        <div class="crow"><span class="ckey">AVG TEMP</span><span class="cval a"   id="s-avgtemp">—</span></div>
+        <div class="crow"><span class="ckey">MIN TEMP</span><span class="cval a"   id="s-mintemp">—</span></div>
+        <div class="crow"><span class="ckey">MAX TEMP</span><span class="cval a"   id="s-maxtemp">—</span></div>
+        <div class="crow"><span class="ckey">AVG HUM</span><span class="cval w"    id="s-avghum">—</span></div>
+        <div class="crow"><span class="ckey">AVG PRESS</span><span class="cval w"  id="s-avgpress">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-col">
+    <div id="map"></div>
+    <div class="charts-row">
+      <div class="chart-panel">
+        <div class="ctitle">temperature</div>
+        <div style="position:relative;flex:1;min-height:0">
+          <canvas id="tempChart" role="img" aria-label="Temperature history">Temperature history</canvas>
+        </div>
+      </div>
+      <div class="chart-panel">
+        <div class="ctitle">altitude &amp; speed</div>
+        <div style="position:relative;flex:1;min-height:0">
+          <canvas id="altChart" role="img" aria-label="Altitude and speed history">Altitude and speed history</canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span>AEROSMART v1.0 &nbsp;/&nbsp; aerosmart.db</span>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div class="spinner" id="spinner"></div>
+    <span id="last-update">—</span>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, '0');
+
+  // clock
+  function tick() {
+    const u = new Date();
+    $('clock').textContent = `${pad(u.getUTCHours())}:${pad(u.getUTCMinutes())}:${pad(u.getUTCSeconds())}`;
+  }
+  setInterval(tick, 1000); tick();
+
+  // tabs
+  function switchTab(id, btn) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    $('tab-' + id).classList.add('active');
+    btn.classList.add('active');
+  }
+  window.switchTab = switchTab;
+
+  // --- MAP ---
+  const map = L.map('map', { zoomControl: true, attributionControl: true });
+
+  const layers = {
+    street: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+      maxZoom: 19
+    }),
+    sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri World Imagery',
+      maxZoom: 19
+    })
+  };
+
+  layers.street.addTo(map);
+  map.setView([47.3769, 8.5417], 14);
+
+  // done with claude ai
+  function setLayer(name) {
+    Object.values(layers).forEach(l => { if (map.hasLayer(l)) map.removeLayer(l); });
+    layers[name].addTo(map);
+    $('btn-street').classList.toggle('active', name === 'street');
+    $('btn-sat').classList.toggle('active', name === 'sat');
+  }
+  window.setLayer = setLayer;
+
+  // track polyline + live marker
+  const trackLine   = L.polyline([], { color: '#00d4aa', weight: 2, opacity: .8 }).addTo(map);
+  const liveIcon    = L.divIcon({
+    html: '<div style="width:12px;height:12px;background:#00d4aa;border:2px solid #fff;border-radius:50%;box-shadow:0 0 6px #00d4aa"></div>',
+    iconSize: [12, 12], iconAnchor: [6, 6], className: ''
+  });
+  const liveMarker  = L.marker([0, 0], { icon: liveIcon });
+  let   mapHasData  = false;
+
+  function updateTrack(rows) {
+    if (!rows.length) return;
+    const pts = rows.filter(r => r.lat && r.lon).map(r => [r.lat, r.lon]);
+    if (!pts.length) return;
+    trackLine.setLatLngs(pts);
+    const last = pts[pts.length - 1];
+    liveMarker.setLatLng(last);
+    if (!mapHasData) { liveMarker.addTo(map); map.setView(last, 15); mapHasData = true; }
+  }
+
+  // fmt helper
+  function fmt(v, dec) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    return parseFloat(v).toFixed(dec ?? 2);
+  }
+
+  // latest
+  async function fetchLatest() {
+    try {
+      const d = await fetch('/api/latest').then(r => r.json());
+      if (!d || !d.lat) return;
+      $('lat').textContent        = fmt(d.lat, 6);
+      $('lon').textContent        = fmt(d.lon, 6);
+      $('gps_alt').textContent    = fmt(d.gps_alt, 1) + ' m';
+      $('speed').textContent      = fmt(d.speed, 1) + ' km/h';
+      $('satellites').textContent = d.satellites ?? '—';
+      $('hdop').textContent       = fmt(d.hdop, 2);
+      $('utc_time').textContent   = d.utc_time ?? '—';
+      $('dht_temp').textContent   = fmt(d.dht_temp, 1);
+      $('humidity').textContent   = fmt(d.humidity, 1);
+      $('bmp_temp').textContent   = fmt(d.bmp_temp, 1);
+      $('pressure').textContent   = fmt(d.pressure, 1);
+      $('bmp_alt').textContent    = fmt(d.bmp_alt, 1);
+      $('roll').textContent       = fmt(d.roll, 1);
+      $('pitch').textContent      = fmt(d.pitch, 1);
+      $('yaw').textContent        = fmt(d.yaw, 1);
+      $('ax').textContent         = fmt(d.ax, 3);
+      $('ay').textContent         = fmt(d.ay, 3);
+      $('az').textContent         = fmt(d.az, 3);
+      $('gx').textContent         = fmt(d.gx, 3);
+      $('gy').textContent         = fmt(d.gy, 3);
+      $('gz').textContent         = fmt(d.gz, 3);
+      $('last-update').textContent = 'updated ' + new Date().toLocaleTimeString();
+      $('dot').style.background = 'var(--accent)';
+      $('dot').style.animation  = 'blink 2s infinite';
+    } catch(e) {
+      $('dot').style.background = 'var(--danger)';
+      $('dot').style.animation  = 'none';
+    }
+  }
+
+  // stats
+  async function fetchStats() {
+    try {
+      const d = await fetch('/api/stats').then(r => r.json());
+      $('s-total').textContent    = d.total_rows ?? '—';
+      $('s-first').textContent    = d.first_seen  ? d.first_seen.slice(11) : '—';
+      $('s-last').textContent     = d.last_seen   ? d.last_seen.slice(11)  : '—';
+      $('s-maxspeed').textContent = d.max_speed   != null ? fmt(d.max_speed, 1)    + ' km/h' : '—';
+      $('s-maxalt').textContent   = d.max_alt     != null ? fmt(d.max_alt, 1)      + ' m'    : '—';
+      $('s-avgtemp').textContent  = d.avg_temp    != null ? fmt(d.avg_temp, 1)     + ' °C'   : '—';
+      $('s-mintemp').textContent  = d.min_temp    != null ? fmt(d.min_temp, 1)     + ' °C'   : '—';
+      $('s-maxtemp').textContent  = d.max_temp    != null ? fmt(d.max_temp, 1)     + ' °C'   : '—';
+      $('s-avghum').textContent   = d.avg_humidity  != null ? fmt(d.avg_humidity, 1)  + ' %'   : '—';
+      $('s-avgpress').textContent = d.avg_pressure  != null ? fmt(d.avg_pressure, 1)  + ' hPa' : '—';
+      $('row-count').textContent  = d.total_rows ?? '—';
+    } catch(e) {}
+  }
+
+  // charts
+  const scl = {
+    ticks: { color: '#64748b', font: { size: 9, family: 'monospace' }, maxRotation: 0, maxTicksLimit: 6 },
+    grid:  { color: '#1e2530' }
+  };
+
+  const tempChart = new Chart($('tempChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'DHT', data: [], borderColor: '#f59e0b', borderWidth: 1.5, fill: true, backgroundColor: 'rgba(245,158,11,.07)', tension: .3 },
+      { label: 'BMP', data: [], borderColor: '#00d4aa', borderWidth: 1.5, fill: false, tension: .3, borderDash: [4,3] }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: false,
+      plugins: { legend: { display: false } },
+      elements: { point: { radius: 0 } },
+      scales: { x: { ...scl }, y: { ...scl } }
+    }
+  });
+
+  const altChart = new Chart($('altChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'Alt', data: [], borderColor: '#3b82f6', borderWidth: 1.5, fill: true, backgroundColor: 'rgba(59,130,246,.07)', tension: .3, yAxisID: 'yA' },
+      { label: 'Spd', data: [], borderColor: '#00d4aa', borderWidth: 1.5, fill: false, tension: .3, yAxisID: 'yS' }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: false,
+      plugins: { legend: { display: false } },
+      elements: { point: { radius: 0 } },
+      scales: {
+        x:  { ...scl, ticks: { ...scl.ticks, maxTicksLimit: 6 } },
+        yA: { position: 'left',  ticks: { color: '#3b82f6', font: { size: 9, family: 'monospace' } }, grid: { color: '#1e2530' } },
+        yS: { position: 'right', ticks: { color: '#00d4aa', font: { size: 9, family: 'monospace' } }, grid: { drawOnChartArea: false } }
+      }
+    }
+  });
+
+  async function fetchHistory() {
+    try {
+      const rows = await fetch('/api/history').then(r => r.json());
+      if (!rows.length) return;
+      const labels = rows.map(r => r.time ? r.time.slice(11,19) : '');
+      tempChart.data.labels = labels;
+      tempChart.data.datasets[0].data = rows.map(r => r.dht_temp);
+      tempChart.data.datasets[1].data = rows.map(r => r.bmp_temp);
+      tempChart.update();
+      altChart.data.labels = labels;
+      altChart.data.datasets[0].data = rows.map(r => r.gps_alt);
+      altChart.data.datasets[1].data = rows.map(r => r.speed);
+      altChart.update();
+    } catch(e) {}
+  }
+
+  async function fetchTrack() {
+    try {
+      const rows = await fetch('/api/track').then(r => r.json());
+      updateTrack(rows);
+    } catch(e) {}
+  }
+
+  async function refresh() {
+    $('spinner').style.display = 'block';
+    await Promise.all([fetchLatest(), fetchStats(), fetchHistory(), fetchTrack()]);
+    $('spinner').style.display = 'none';
+  }
+
+  refresh();
+  setInterval(refresh, 4000);
+
+  // fix map size after layout settles
+  setTimeout(() => map.invalidateSize(), 200);
+})();
+</script>
+</body>
+</html>
